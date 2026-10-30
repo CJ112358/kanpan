@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f16">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="量化看盘">
+<title>量化看盘 · 快照</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:#0b0f16;color:#e9eff8;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-text-size-adjust:100%}
+  .wrap{max-width:560px;margin:0 auto;padding:14px 12px 40px}
+
+  /* 顶部 */
+  .hd{display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 12px}
+  .hd h1{font-size:17px;font-weight:800;margin:0;letter-spacing:.2px}
+  .hd .t{font-size:11.5px;color:#66708a;font-variant-numeric:tabular-nums}
+
+  /* 快照提示条 */
+  .snapbar{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;
+    background:rgba(201,129,42,.12);border:1px solid rgba(201,129,42,.3);
+    color:#e0a95e;font-size:12px;line-height:1.5;margin-bottom:14px}
+  .snapbar b{color:#f2c078;font-weight:750}
+
+  .sec{margin-bottom:18px}
+  .sec-t{font-size:11.5px;font-weight:750;color:#66708a;letter-spacing:1px;
+    text-transform:uppercase;margin:0 2px 8px}
+
+  /* 指数 */
+  .idx{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .idx-c{background:#121826;border:1px solid #1d2637;border-radius:12px;padding:11px 12px}
+  .idx-n{font-size:12px;color:#8b97ad;margin-bottom:6px}
+  .idx-p{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+  .idx-c2{font-size:12.5px;font-weight:750;margin-top:3px;font-variant-numeric:tabular-nums}
+  .idx-hl{font-size:10.5px;color:#5b6478;margin-top:5px;font-variant-numeric:tabular-nums}
+
+  /* 账户卡 */
+  .acct{background:#121826;border:1px solid #1d2637;border-radius:14px;
+    padding:13px 13px 10px;margin-bottom:11px}
+  .acct-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .acct-n{font-size:14px;font-weight:800}
+  .acct-badge{font-size:10.5px;padding:2px 7px;border-radius:6px;
+    background:rgba(109,143,255,.13);color:#8fa6ff;font-weight:700}
+  .kv{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-bottom:11px}
+  .kv .c{background:#0e1520;border:1px solid #1a2231;border-radius:9px;padding:8px 10px}
+  .kv .k{font-size:10.5px;color:#66708a;margin-bottom:3px}
+  .kv .v{font-size:14px;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+
+  .bar{height:4px;border-radius:2px;background:#1a2231;overflow:hidden;margin:0 0 11px}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,#4d7bf3,#6d8fff)}
+
+  /* 持仓行 */
+  .hd-row{display:grid;grid-template-columns:1fr 62px 62px 62px;gap:6px;
+    font-size:10.5px;color:#5b6478;padding:0 2px 5px;border-bottom:1px solid #1a2231}
+  .hd-row span:nth-child(n+2){text-align:right}
+  .ph{display:grid;grid-template-columns:1fr 62px 62px 62px;gap:6px;
+    padding:8px 2px;border-bottom:1px solid #161e2b;align-items:center}
+  .ph:last-child{border-bottom:0}
+  .ph .nm{font-size:12.5px;font-weight:650;line-height:1.3}
+  .ph .cd{font-size:10px;color:#5b6478;margin-top:1px}
+  .ph .n{text-align:right;font-size:12px;font-variant-numeric:tabular-nums;color:#97a3b8}
+  .up{color:#e5484d}
+  .down{color:#18a373}
+  .flat{color:#8b97ad}
+
+  .acct-f{font-size:10.5px;color:#5b6478;margin-top:9px;padding-top:8px;border-top:1px dashed #1a2231}
+
+  /* 策略 */
+  .adv{background:#121826;border:1px solid #1d2637;border-radius:14px;padding:13px}
+  .adv-t{font-size:13.5px;font-weight:800;margin-bottom:8px}
+  .adv-d{font-size:12px;color:#8b97ad;line-height:1.75;margin:0;padding-left:16px}
+  .adv-d li{margin-bottom:3px}
+
+  /* 榜单 */
+  .rk{display:grid;grid-template-columns:20px 1fr 64px 56px;gap:7px;
+    padding:8px 2px;border-bottom:1px solid #161e2b;align-items:center;font-size:12.5px}
+  .rk:last-child{border-bottom:0}
+  .rk .i{font-size:10.5px;color:#5b6478;font-weight:700}
+  .rk .nm{font-weight:650}
+  .rk .cd{font-size:10px;color:#5b6478}
+  .rk .s{text-align:right;font-weight:750;font-variant-numeric:tabular-nums;color:#8fa6ff}
+  .rk .r{text-align:right;font-variant-numeric:tabular-nums;font-size:12px}
+
+  .ft{text-align:center;font-size:11px;color:#3f4759;margin-top:20px;line-height:1.8}
+  .ft a{color:#5b6478;text-decoration:none;border-bottom:1px solid #2a3346;padding-bottom:1px}
+
+  .loading{text-align:center;padding:70px 20px;color:#66708a;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="loading">正在载入快照…</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var app = document.getElementById("app");
+
+  function fmt(n, d) {
+    if (n === null || n === undefined || isNaN(n)) return "—";
+    d = d === undefined ? 2 : d;
+    return Number(n).toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d });
+  }
+  function sign(n, d) {
+    if (n === null || n === undefined || isNaN(n)) return "—";
+    var v = Number(n);
+    return (v > 0 ? "+" : "") + fmt(v, d === undefined ? 2 : d);
+  }
+  function cls(n) {
+    if (n === null || n === undefined || isNaN(n) || Number(n) === 0) return "flat";
+    return Number(n) > 0 ? "up" : "down";
+  }
+  function esc(s) {
+    return String(s === undefined || s === null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function indexCard(x) {
+    return '<div class="idx-c">'
+      + '<div class="idx-n">' + esc(x.label) + '</div>'
+      + '<div class="idx-p ' + cls(x.chg_pct) + '">' + fmt(x.price) + '</div>'
+      + '<div class="idx-c2 ' + cls(x.chg_pct) + '">' + sign(x.chg_pct) + '%</div>'
+      + '<div class="idx-hl">高 ' + fmt(x.high) + ' · 低 ' + fmt(x.low) + '</div>'
+      + '</div>';
+  }
+
+  function holdingRow(h) {
+    var dayCls = cls(h.day_pct);
+    return '<div class="ph">'
+      + '<div><div class="nm">' + esc(h.name) + '</div>'
+      + '<div class="cd">' + esc(h.code) + ' · ' + fmt(h.qty, 0) + '股 · 成本 ' + fmt(h.cost, 3) + '</div></div>'
+      + '<div class="n">' + fmt(h.price, 3) + '</div>'
+      + '<div class="n ' + dayCls + '">' + sign(h.day_pct) + '%</div>'
+      + '<div class="n ' + cls(h.pnl_pct) + '">' + sign(h.pnl_pct) + '%</div>'
+      + '</div>';
+  }
+
+  function accountCard(a, i) {
+    var holds = (a.holdings || []).map(holdingRow).join("");
+    var pct = Math.max(0, Math.min(100, Number(a.position_pct) || 0));
+    return '<div class="acct">'
+      + '<div class="acct-h"><div class="acct-n">' + esc(a.name || ("账号" + (i + 1))) + '</div>'
+      + '<div class="acct-badge">仓位 ' + fmt(a.position_pct, 1) + '%</div></div>'
+      + '<div class="kv">'
+      + '<div class="c"><div class="k">总资产</div><div class="v">¥' + fmt(a.total_asset) + '</div></div>'
+      + '<div class="c"><div class="k">当日盈亏</div><div class="v ' + cls(a.day_pnl) + '">'
+        + sign(a.day_pnl, 0) + '<span style="font-size:11px;font-weight:600"> (' + sign(a.day_pnl_pct) + '%)</span></div></div>'
+      + '<div class="c"><div class="k">持仓市值</div><div class="v">¥' + fmt(a.market_value) + '</div></div>'
+      + '<div class="c"><div class="k">可用现金</div><div class="v">¥' + fmt(a.cash) + '</div></div>'
+      + '</div>'
+      + '<div class="bar"><i style="width:' + pct + '%"></i></div>'
+      + '<div class="hd-row"><span>名称 / 数量</span><span>现价</span><span>当日</span><span>累计</span></div>'
+      + holds
+      + '<div class="acct-f">' + (a.holdings || []).length + ' 只持仓'
+        + (a.float_pnl !== undefined ? ' · 累计盈亏 ' + sign(a.float_pnl, 0) : '') + '</div>'
+      + '</div>';
+  }
+
+  function rankRow(x, i) {
+    var r20 = x.r20 !== undefined ? x.r20 * 100 : null;
+    return '<div class="rk">'
+      + '<div class="i">' + (i + 1) + '</div>'
+      + '<div><div class="nm">' + esc(x.name) + '</div><div class="cd">' + esc(x.code) + '</div></div>'
+      + '<div class="s">' + fmt(x.score, 1) + '</div>'
+      + '<div class="r ' + cls(r20) + '">' + (r20 === null ? '—' : sign(r20) + '%') + '</div>'
+      + '</div>';
+  }
+
+  function render(d) {
+    var idx = (d.indexes || []).map(indexCard).join("");
+    var accts = (d.accounts || []).map(accountCard).join("");
+    var sig = d.signal || {};
+    var adv = sig.advice || {};
+    var detail = (adv.detail || []).map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("");
+    var top = (sig.top || []).slice(0, 8).map(rankRow).join("");
+
+    app.innerHTML =
+      '<div class="hd"><h1>量化看盘</h1><div class="t">' + esc(d.time || "") + '</div></div>'
+      + '<div class="snapbar">📌 电脑当前没有在线，下面是 <b>' + esc(d.time || "最后一次") + '</b> 保存的快照。'
+      + '<br>回到电脑并打开看板后，这里会自动变回实时。</div>'
+      + (idx ? '<div class="sec"><div class="sec-t">大盘</div><div class="idx">' + idx + '</div></div>' : '')
+      + (accts ? '<div class="sec"><div class="sec-t">持仓</div>' + accts + '</div>' : '')
+      + (adv.title ? '<div class="sec"><div class="sec-t">今日策略</div><div class="adv">'
+          + '<div class="adv-t">' + esc(adv.title) + '</div>'
+          + (detail ? '<ul class="adv-d">' + detail + '</ul>' : '')
+          + '</div></div>' : '')
+      + (top ? '<div class="sec"><div class="sec-t">板块排行</div><div class="adv">' + top + '</div></div>' : '')
+      + '<div class="ft">数据为收盘后保存的快照，仅作记录参考<br>'
+      + '<a href="./">打开实时看板</a></div>';
+  }
+
+  fetch("./snap.json?t=" + Date.now(), { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
+    .then(function (d) {
+      if (!d || (!d.indexes && !d.accounts)) throw new Error("empty");
+      render(d);
+    })
+    .catch(function () {
+      app.innerHTML = '<div class="loading">还没有可用的快照。<br><br>'
+        + '<a href="./" style="color:#8fa6ff">回到实时看板</a></div>';
+    });
+})();
+</script>
+</body>
+</html>
