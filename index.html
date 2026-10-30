@@ -209,12 +209,12 @@
           if (d && d.url && d.url !== best.url) {
             direct.href = d.url;
             frame.src = d.url;
-            timer = setTimeout(showSnap, 20000);
+            timer = setTimeout(showSnap, 12000);
           } else {
             showSnap();
           }
         }).catch(showSnap);
-      }, 20000);
+      }, 12000);
     });
   }
 
