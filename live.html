@@ -84,7 +84,8 @@
   <div class="idx" id="idx"></div>
   <div id="accts"></div>
 
-  <div class="tip">红涨绿跌 · 行情来自交易所公开接口<br>盘中约 3 秒刷新，收盘后停止 · 本页不依赖任何电脑</div>
+  <div class="tip">红涨绿跌 · 行情来自交易所公开接口<br>盘中约 3 秒刷新，收盘后停止 · 本页不依赖任何电脑<br>
+    <a href="./snap.html" style="color:#6d8fff;text-decoration:none;font-weight:650">策略建议与板块排行 →</a></div>
 </div>
 
 <script>
@@ -188,7 +189,7 @@
     var url = "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=" + ids.join(",") +
               "&fields=f2,f3,f4,f12,f13,f14,f18&_=" + Date.now();
     var ctl = window.AbortController ? new AbortController() : null;
-    var tid = setTimeout(function () { if (ctl) { try { ctl.abort(); } catch (e) {} } }, 6000);
+    var tid = setTimeout(function () { if (ctl) { try { ctl.abort(); } catch (e) {} } }, 4000);
     return fetch(url, { cache: "no-store", signal: ctl ? ctl.signal : undefined })
       .then(function (r) {
         if (!r.ok) throw new Error("em http " + r.status);
