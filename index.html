@@ -123,36 +123,58 @@
     if (msg) failDesc.innerHTML = msg;
   }
 
+  // 两个源同时读：raw 是实时的，Pages 有约 10 分钟 CDN 缓存，取时间戳更新的那个
+  var SRC = [
+    "https://raw.githubusercontent.com/CJ112358/kanpan/main/latest.json",
+    "./latest.json"
+  ];
+
+  function loadOne(u) {
+    var sep = u.indexOf("?") < 0 ? "?" : "&";
+    return fetch(u + sep + "t=" + Date.now(), { cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then(function (d) {
+        if (!d || !d.url) throw new Error("empty");
+        return d;
+      });
+  }
+
   function run() {
     done = false;
     fail.classList.remove("on");
     boot.style.display = "flex";
     boot.classList.remove("gone");
     bootTxt.textContent = "正在连接你的电脑…";
+    clearTimeout(timer);
 
-    fetch("latest.json?t=" + Date.now(), { cache: "no-store" })
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        if (!d || !d.url) throw new Error("empty");
-        direct.href = d.url;
-        direct.hidden = false;
-        if (d.updated) bootTxt.textContent = "正在连接（通道更新于 " + d.updated + "）…";
-        frame.src = d.url;
-
-        timer = setTimeout(function () {
-          // 8 秒还没影，就当连不上
-          showFail(
-            "等了 8 秒没连上。<br>电脑可能关机、睡眠，或者通道被关掉了。" +
-            "<br><span style='color:#5b6b83'>通道更新于 " + (d.updated || "未知") + "</span>"
-          );
-        }, 8000);
-      })
-      .catch(function () {
-        showFail(
-          "读不到通道地址。<br>这台电脑还没开过通道，" +
-          "<br>或者 GitHub 上的 latest.json 没更新。"
-        );
+    Promise.allSettled(SRC.map(loadOne)).then(function (rs) {
+      var best = null;
+      rs.forEach(function (r) {
+        if (r.status !== "fulfilled") return;
+        var d = r.value;
+        if (!best || Number(d.ts || 0) > Number(best.ts || 0)) best = d;
       });
+
+      if (!best) {
+        showFail("读不到通道地址。<br>这台电脑还没开过通道，或者网络不通。");
+        return;
+      }
+
+      direct.href = best.url;
+      direct.hidden = false;
+      if (best.updated) bootTxt.textContent = "正在连接（" + best.updated + " 的通道）…";
+      frame.src = best.url;
+
+      timer = setTimeout(function () {
+        showFail(
+          "等了 8 秒没连上。<br>电脑可能关机、睡眠，或者通道被关掉了。" +
+          "<br><span style='color:#5b6b83'>最后更新：" + (best.updated || "未知") + "</span>"
+        );
+      }, 8000);
+    });
   }
 
   frame.addEventListener("load", function () {
