@@ -124,11 +124,15 @@
     if (msg) failDesc.innerHTML = msg;
   }
 
-  // 两个源同时读：raw 是实时的，Pages 有约 10 分钟 CDN 缓存，取时间戳更新的那个
+  // 三个源同时读：raw 有约 5 分钟 CDN 缓存、Pages 约 10 分钟，
+  // GitHub API 不走 CDN 最准（有频次限制，所以本地缓存 3 分钟）。
+  // 最后按时间戳取最新的那个。
   var SRC = [
     "https://raw.githubusercontent.com/CJ112358/kanpan/main/latest.json",
     "./latest.json"
   ];
+  var API_SRC = "https://api.github.com/repos/CJ112358/kanpan/contents/latest.json";
+  var API_KEY = "kp-api-cache";
 
   function loadOne(u) {
     var sep = u.indexOf("?") < 0 ? "?" : "&";
@@ -143,6 +147,32 @@
       });
   }
 
+  function loadApi() {
+    try {
+      var c = JSON.parse(localStorage.getItem(API_KEY) || "null");
+      if (c && c.t && Date.now() - c.t < 180000 && c.url) {
+        return Promise.resolve(c);
+      }
+    } catch (e) {}
+    return fetch(API_SRC + "?t=" + Date.now(), { cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then(function (j) {
+        var txt = "";
+        if (j && j.content) {
+          // GitHub 返回 base64，且带换行，去掉再解
+          txt = decodeURIComponent(escape(window.atob(String(j.content).replace(/\s+/g, ""))));
+        }
+        var d = JSON.parse(txt);
+        if (!d || !d.url) throw new Error("empty");
+        d.t = Date.now();
+        try { localStorage.setItem(API_KEY, JSON.stringify(d)); } catch (e) {}
+        return d;
+      });
+  }
+
   function run() {
     done = false;
     fail.classList.remove("on");
@@ -151,7 +181,7 @@
     bootTxt.textContent = "正在连接你的电脑…";
     clearTimeout(timer);
 
-    Promise.allSettled(SRC.map(loadOne)).then(function (rs) {
+    Promise.allSettled([loadOne(SRC[0]), loadOne(SRC[1]), loadApi()]).then(function (rs) {
       var best = null;
       rs.forEach(function (r) {
         if (r.status !== "fulfilled") return;
