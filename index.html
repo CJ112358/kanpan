@@ -117,6 +117,7 @@
   }
 
   function showFail(msg) {
+    if (done) return;               // 已经加载出来了就别再盖一层
     clearTimeout(timer);
     boot.style.display = "none";
     fail.classList.add("on");
@@ -170,10 +171,10 @@
 
       timer = setTimeout(function () {
         showFail(
-          "等了 8 秒没连上。<br>电脑可能关机、睡眠，或者通道被关掉了。" +
+          "等了 20 秒没连上。<br>电脑可能关机、睡眠，或者通道被关掉了。" +
           "<br><span style='color:#5b6b83'>最后更新：" + (best.updated || "未知") + "</span>"
         );
-      }, 8000);
+      }, 20000);
     });
   }
 
