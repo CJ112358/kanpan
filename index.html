@@ -218,7 +218,8 @@
           maybe();
         }, maybe);
       });
-      setTimeout(function () { close(best); }, 720);
+      // 0.7 秒后只要有结果就先走；没结果就继续等（每个源 4 秒必断，不会无限等）
+      setTimeout(function () { if (best) close(best); }, 720);
     });
   }
 
