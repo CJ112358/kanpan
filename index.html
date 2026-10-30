@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -8,251 +8,350 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="量化看盘">
-<meta name="application-name" content="量化看盘">
-<title>量化看盘</title>
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" href="./icon-192.png">
+<title>量化看盘 · 实时</title>
 <style>
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0; padding: 0; height: 100%;
-    background: #0b0f16; color: #e9eff8;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-    -webkit-text-size-adjust: 100%;
+  :root{
+    --bg:#0b0f16; --card:#121826; --line:#1d2637; --line2:#232c3d;
+    --txt:#e9eff8; --mut:#8a99ae; --muted2:#5b6478;
+    --red:#ff4d4f; --green:#2fbf71; --amber:#f0b45c;
   }
-  #wrap {
-    position: fixed; inset: 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 18px; padding: 28px 24px; text-align: center;
-  }
-  .spin {
-    width: 30px; height: 30px; border-radius: 50%;
-    border: 2.5px solid rgba(255, 255, 255, .14);
-    border-top-color: #6d8fff;
-    animation: sp .82s linear infinite;
-  }
-  @keyframes sp { to { transform: rotate(360deg); } }
-  .txt { font-size: 13px; color: #8a99ae; letter-spacing: .3px; line-height: 1.7; }
-  .hide { display: none !important; }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-text-size-adjust:100%}
+  .wrap{max-width:560px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 12px 28px}
 
-  #fail { max-width: 320px; }
-  .f-ico {
-    width: 46px; height: 46px; border-radius: 50%; margin: 0 auto 16px;
-    display: grid; place-items: center;
-    background: rgba(240, 180, 92, .12); border: 1px solid rgba(240, 180, 92, .32);
-    color: #f0b45c; font-size: 22px; font-weight: 800;
-  }
-  .f-title { font-size: 16px; font-weight: 780; margin: 0 0 8px; }
-  .f-desc { font-size: 12.5px; line-height: 1.75; color: #8a99ae; margin: 0 0 20px; }
-  .f-btn {
-    font-family: inherit; font-size: 13.5px; font-weight: 750;
-    color: #0b0f16; background: #6d8fff; border: 0;
-    padding: 10px 26px; border-radius: 10px; cursor: pointer;
-    -webkit-tap-highlight-color: transparent; margin: 0 4px;
-  }
-  .f-btn.ghost { background: transparent; color: #8a99ae; border: 1px solid #2a3446; }
+  header{display:flex;align-items:center;gap:8px;margin:2px 0 12px}
+  .logo{font-size:15.5px;font-weight:820;letter-spacing:.2px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:none;
+    box-shadow:0 0 0 3px rgba(47,191,113,.14)}
+  .dot.off{background:var(--amber);box-shadow:0 0 0 3px rgba(240,180,92,.14)}
+  .st{font-size:11.5px;color:var(--mut);margin-left:2px}
+  .spacer{flex:1}
+  .btn{border:1px solid var(--line2);background:transparent;color:var(--mut);
+    font-family:inherit;font-size:12px;font-weight:700;padding:6px 11px;border-radius:9px}
+  .btn:active{transform:scale(.97)}
+
+  .bar{display:none;align-items:center;gap:8px;margin:0 0 11px;padding:8px 12px;border-radius:11px;
+    background:rgba(245,158,11,.11);border:1px solid rgba(245,158,11,.3);
+    color:#f0b45c;font-size:11.5px;font-weight:650;line-height:1.5}
+  .bar.on{display:flex}
+
+  .idx{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px}
+  .ic{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:10px 11px}
+  .ic .n{font-size:11.5px;color:var(--mut);margin-bottom:5px}
+  .ic .p{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+  .ic .c{font-size:11.5px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums}
+
+  .acct{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:12px 12px 10px;margin-bottom:10px}
+  .a-h{display:flex;align-items:baseline;gap:8px;margin-bottom:7px}
+  .a-n{font-size:14px;font-weight:820}
+  .a-pos{font-size:11px;color:var(--mut);margin-left:auto}
+  .a-asset{font-size:19px;font-weight:820;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+  .a-sub{display:flex;gap:10px;font-size:11.5px;margin-top:3px;font-variant-numeric:tabular-nums}
+  .a-sub b{font-weight:750}
+
+  .hd,.rw{display:grid;grid-template-columns:1fr 62px 66px 74px;gap:4px;align-items:center}
+  .hd{font-size:10px;color:var(--muted2);padding:7px 0 5px;border-top:1px solid var(--line2);margin-top:9px}
+  .hd span:not(:first-child),.rw span:not(:first-child){text-align:right}
+  .rw{padding:5px 0;border-top:1px solid rgba(35,44,61,.55);font-variant-numeric:tabular-nums}
+  .rw:first-of-type{border-top:0}
+  .nm{font-size:12.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qt{font-size:10px;color:var(--muted2);margin-left:4px}
+  .px{font-size:12px;font-weight:700}
+  .dy,.pn{font-size:11.5px;font-weight:700}
+  .up{color:var(--red)} .down{color:var(--green)} .flat{color:var(--mut)}
+  .foot{font-size:10.5px;color:var(--muted2);margin-top:9px;padding-top:8px;border-top:1px dashed var(--line2)}
+  .tip{font-size:10.5px;color:var(--muted2);text-align:center;margin-top:14px;line-height:1.7}
 </style>
 </head>
 <body>
+<div class="wrap">
+  <header>
+    <span class="logo">量化看盘</span>
+    <span class="dot" id="dot"></span>
+    <span class="st" id="st">连接中…</span>
+    <span class="spacer"></span>
+    <button class="btn" id="btn">刷新</button>
+  </header>
 
-<div id="wrap">
-  <div id="boot">
-    <div class="spin"></div>
-    <div class="txt" id="boot-txt" style="margin-top:14px">正在连接你的电脑…</div>
-  </div>
+  <div class="bar" id="bar"><span id="bar-txt"></span></div>
 
-  <div id="fail" class="hide">
-    <div class="f-ico">!</div>
-    <p class="f-title">连不上看盘服务</p>
-    <p class="f-desc" id="fail-desc">
-      电脑可能关机了，或者通道没开。
-    </p>
-    <button class="f-btn" id="retry">重试</button>
-    <button class="f-btn ghost" id="snap">看快照</button>
-  </div>
+  <div class="idx" id="idx"></div>
+  <div id="accts"></div>
+
+  <div class="tip">红涨绿跌 · 行情来自交易所公开接口<br>盘中约 3 秒刷新，收盘后停止 · 本页不依赖任何电脑<br>
+    <a href="./snap.html" style="color:#6d8fff;text-decoration:none;font-weight:650">策略建议与板块排行 →</a></div>
 </div>
 
 <script>
 (function () {
   "use strict";
 
-  var boot = document.getElementById("boot");
-  var bootTxt = document.getElementById("boot-txt");
-  var fail = document.getElementById("fail");
-  var failDesc = document.getElementById("fail-desc");
-  var done = false;
-  var timers = [];
+  var LIVE_MS = 3000;
+  var SNAP_KEY = "kp-live-snap";
+  var IDX = [["上证指数", "sh000001"], ["深证成指", "sz399001"],
+             ["创业板指", "sz399006"], ["科创50", "sh000688"]];
 
-  function later(fn, ms) { var t = setTimeout(fn, ms); timers.push(t); return t; }
-  function clearAll() { timers.forEach(clearTimeout); timers = []; }
+  var elIdx = document.getElementById("idx");
+  var elAcc = document.getElementById("accts");
+  var elSt = document.getElementById("st");
+  var elDot = document.getElementById("dot");
+  var elBar = document.getElementById("bar");
+  var elBarTxt = document.getElementById("bar-txt");
 
-  function toSnap(why) {
-    if (done) return;
-    done = true;
-    clearAll();
-    bootTxt.textContent = (why || "电脑不在线") + "，正在打开上次保存的快照…";
-    later(function () { location.replace("./snap.html"); }, 1100);
+  var holdings = null, timer = null, last = null, fails = 0, srcName = "";
+
+  function f(v) { var x = parseFloat(v); return isNaN(x) ? null : x; }
+
+  /* 6 位代码 -> 腾讯符号 */
+  function sym(code) {
+    var n = String(code);
+    while (n.length < 6) n = "0" + n;
+    var c = n.charAt(0);
+    if ("569".indexOf(c) >= 0) return "sh" + n;
+    if ("48".indexOf(c) >= 0 || n.indexOf("920") === 0) return "bj" + n;
+    return "sz" + n;
+  }
+  /* 6 位代码 -> 东财 secid */
+  function secid(code) {
+    var n = String(code);
+    while (n.length < 6) n = "0" + n;
+    return ("569".indexOf(n.charAt(0)) >= 0 ? "1." : "0.") + n;
   }
 
-  function toFail(msg) {
-    if (done) return;
-    done = true;
-    clearAll();
-    boot.classList.add("hide");
-    fail.classList.remove("hide");
-    if (msg) failDesc.innerHTML = msg;
+  function n2(v, d) {
+    if (v === null || v === undefined || isNaN(v)) return "—";
+    return Number(v).toFixed(d === undefined ? 2 : d);
+  }
+  function money(v) {
+    if (v === null || v === undefined || isNaN(v)) return "—";
+    var a = Math.abs(v);
+    var s = a >= 10000 ? (a / 10000).toFixed(2) + "万" : a.toFixed(0);
+    return (v < 0 ? "-¥" : "¥") + s;
+  }
+  function cls(v) { return v > 0 ? "up" : (v < 0 ? "down" : "flat"); }
+  function sign(v, d) {
+    if (v === null || v === undefined || isNaN(v)) return "—";
+    return (v > 0 ? "+" : "") + Number(v).toFixed(d === undefined ? 2 : d);
   }
 
-  // 三个源同时读，全部带超时：raw / api.github.com 在国内 4G 经常「连不上也不报错」，
-  // 没有超时就会永远卡在「正在连接你的电脑…」
-  var SRC = ["./latest.json",
-             "https://raw.githubusercontent.com/CJ112358/kanpan/main/latest.json"];
-  var API_SRC = "https://api.github.com/repos/CJ112358/kanpan/contents/latest.json";
-  var API_KEY = "kp-api-cache";
+  function isLive() {
+    if (/[?&]live=1/.test(location.search)) return true;   // 调试用：强制盘中模式
+    var d = new Date(), w = d.getDay();
+    if (w === 0 || w === 6) return false;
+    var t = d.getHours() * 100 + d.getMinutes();
+    return (t >= 915 && t <= 1135) || (t >= 1255 && t <= 1505);
+  }
+  function clock() {
+    var d = new Date(), p = function (n) { return n < 10 ? "0" + n : "" + n; };
+    return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+  }
+  function stamp() { return (isLive() ? "实时" : "已收盘") + " · " + clock() + (srcName ? " · " + srcName : ""); }
 
-  function withTimeout(makeFetch, ms) {
-    return new Promise(function (resolve, reject) {
-      var ctl = window.AbortController ? new AbortController() : null;
-      var fired = false;
-      var t = setTimeout(function () {
-        fired = true;
-        if (ctl) { try { ctl.abort(); } catch (e) {} }
-        reject(new Error("timeout"));
-      }, ms || 4000);
-      makeFetch(ctl).then(function (v) {
-        if (fired) return;
-        clearTimeout(t); resolve(v);
-      }, function (e) {
-        if (fired) return;
-        clearTimeout(t); reject(e);
+  /* ================= 数据源 1：腾讯行情（CORS 全开） ================= */
+  function fetchTencent(list) {
+    var url = "https://qt.gtimg.cn/q=" + list.join(",") + "&_=" + Date.now();
+    var ctl = window.AbortController ? new AbortController() : null;
+    var tid = setTimeout(function () { if (ctl) { try { ctl.abort(); } catch (e) {} } }, 6000);
+    return fetch(url, { cache: "no-store", signal: ctl ? ctl.signal : undefined })
+      .then(function (r) {
+        if (!r.ok) throw new Error("tencent http " + r.status);
+        return r.arrayBuffer();
+      })
+      .then(function (buf) {
+        clearTimeout(tid);
+        var txt;
+        try { txt = new TextDecoder("gbk").decode(buf); }
+        catch (e) { txt = new TextDecoder("utf-8").decode(buf); }
+        var out = {}, re = /v_([a-z]{2}\d{6})="([^"]*)"/g, m;
+        while ((m = re.exec(txt))) {
+          var b = m[2].split("~");
+          if (b.length < 35) continue;
+          out[m[1]] = {
+            name: b[1], price: f(b[3]), prev: f(b[4]),
+            chg: f(b[31]), chg_pct: f(b[32]),
+            high: f(b[33]), low: f(b[34])
+          };
+        }
+        if (!out["sh000001"]) throw new Error("tencent empty");
+        return out;
+      });
+  }
+
+  /* ================= 数据源 2：东方财富（CORS 放行 github.io） ================= */
+  function fetchEastmoney(list) {
+    var ids = IDX.map(function (x) { return secid(x[1].slice(2)); }).concat(list.map(function (s) { return secid(s.slice(2)); }));
+    var url = "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=" + ids.join(",") +
+              "&fields=f2,f3,f4,f12,f13,f14,f18&_=" + Date.now();
+    var ctl = window.AbortController ? new AbortController() : null;
+    var tid = setTimeout(function () { if (ctl) { try { ctl.abort(); } catch (e) {} } }, 4000);
+    return fetch(url, { cache: "no-store", signal: ctl ? ctl.signal : undefined })
+      .then(function (r) {
+        if (!r.ok) throw new Error("em http " + r.status);
+        return r.json();
+      })
+      .then(function (j) {
+        clearTimeout(tid);
+        var diff = (j && j.data && j.data.diff) || [];
+        if (!diff.length) throw new Error("em empty");
+        var out = {};
+        diff.forEach(function (x) {
+          var k = (x.f13 === 1 ? "sh" : "sz") + x.f12;
+          out[k] = {
+            name: x.f14, price: f(x.f2), prev: f(x.f18),
+            chg: f(x.f4), chg_pct: f(x.f3), high: null, low: null
+          };
+        });
+        return out;
+      });
+  }
+
+  function allSymbols() {
+    var seen = {}, list = [];
+    IDX.forEach(function (x) { if (!seen[x[1]]) { seen[x[1]] = 1; list.push(x[1]); } });
+    (holdings.accounts || []).forEach(function (a) {
+      (a.holdings || []).forEach(function (h) {
+        var s = sym(h.code);
+        if (!seen[s]) { seen[s] = 1; list.push(s); }
       });
     });
+    return list;
   }
 
-  function loadOne(u) {
-    var sep = u.indexOf("?") < 0 ? "?" : "&";
-    return withTimeout(function (ctl) {
-      return fetch(u + sep + "t=" + Date.now(), {
-        cache: "no-store", signal: ctl ? ctl.signal : undefined
-      }).then(function (r) {
-        if (!r.ok) throw new Error("http " + r.status);
-        return r.json();
-      }).then(function (d) {
-        if (!d || !d.url) throw new Error("empty");
-        return d;
-      });
-    }, 4000);
+  /* ================= 渲染 ================= */
+  function renderIdx(q) {
+    elIdx.innerHTML = IDX.map(function (x) {
+      var d = q[x[1]] || {}, c = d.chg_pct;
+      return '<div class="ic"><div class="n">' + x[0] + '</div>' +
+        '<div class="p ' + cls(c) + '">' + n2(d.price) + '</div>' +
+        '<div class="c ' + cls(c) + '">' + (c == null ? "—" : sign(c) + "%") + '</div></div>';
+    }).join("");
   }
 
-  function loadApi(fresh) {
-    if (!fresh) {
-      try {
-        var c = JSON.parse(localStorage.getItem(API_KEY) || "null");
-        if (c && c.t && Date.now() - c.t < 60000 && c.url) return Promise.resolve(c);
-      } catch (e) {}
-    }
-    return withTimeout(function (ctl) {
-      return fetch(API_SRC + "?t=" + Date.now(), {
-        cache: "no-store", signal: ctl ? ctl.signal : undefined
-      }).then(function (r) {
-        if (!r.ok) throw new Error("http " + r.status);
-        return r.json();
-      }).then(function (j) {
-        var txt = "";
-        if (j && j.content) {
-          txt = decodeURIComponent(escape(window.atob(String(j.content).replace(/\s+/g, ""))));
-        }
-        var d = JSON.parse(txt);
-        if (!d || !d.url) throw new Error("empty");
-        d.t = Date.now();
-        try { localStorage.setItem(API_KEY, JSON.stringify(d)); } catch (e) {}
-        return d;
-      });
-    }, 4000);
-  }
+  function accountCard(a, q) {
+    var mv = 0, day = 0, cost = 0, rows = "";
+    (a.holdings || []).forEach(function (h) {
+      var d = q[sym(h.code)] || {};
+      var price = d.price, prev = d.prev;
+      var qty = Number(h.qty) || 0, cst = Number(h.cost) || 0;
+      var rowMv = price != null ? price * qty : cst * qty;
+      var rowDay = (price != null && prev != null) ? (price - prev) * qty : 0;
+      var rowPnl = price != null ? (price - cst) * qty : 0;
+      mv += rowMv; day += rowDay; cost += cst * qty;
 
-  // 拿到第一个可用地址就先走，最多再等 0.7 秒看有没有更新的时间戳
-  function pickBest() {
-    var list = [loadOne(SRC[0]), loadOne(SRC[1]), loadApi()];
-    return new Promise(function (resolve) {
-      var best = null, left = list.length, closed = false, t0 = Date.now();
-      function close(v) { if (!closed) { closed = true; resolve(v); } }
-      function maybe() {
-        left--;
-        if (best && (left === 0 || Date.now() >= t0 + 700)) close(best);
-        else if (!best && left === 0) close(null);
-      }
-      list.forEach(function (p) {
-        p.then(function (d) {
-          if (!best || Number(d.ts || 0) > Number(best.ts || 0)) best = d;
-          maybe();
-        }, maybe);
-      });
-      setTimeout(function () { if (best) close(best); }, 720);
+      var chg = d.chg_pct != null ? d.chg_pct
+              : (price != null && prev ? (price - prev) / prev * 100 : null);
+
+      rows +=
+        '<div class="rw">' +
+          '<span><span class="nm">' + (h.name || h.code) + '</span>' +
+            '<span class="qt">' + h.code + '</span></span>' +
+          '<span class="px">' + (price != null ? n2(price, price < 10 ? 3 : 2) : "—") +
+            '<span class="qt">' + (chg == null ? "" : sign(chg) + "%") + '</span></span>' +
+          '<span class="dy ' + cls(rowDay) + '">' + (price != null ? money(rowDay) : "—") + '</span>' +
+          '<span class="pn ' + cls(rowPnl) + '">' + (price != null ? money(rowPnl) : "—") + '</span>' +
+        '</div>';
     });
+
+    var cash = Number(a.cash) || 0;
+    var total = mv + cash;
+    var posPct = total > 0 ? mv / total * 100 : 0;
+    var dayPct = (total - day) > 0 ? day / (total - day) * 100 : 0;
+    var pnl = mv - cost;
+
+    return '<div class="acct">' +
+      '<div class="a-h"><span class="a-n">' + (a.name || "账户") + '</span>' +
+        '<span class="a-pos">仓位 ' + posPct.toFixed(1) + '%</span></div>' +
+      '<div class="a-asset">' + money(total) + '</div>' +
+      '<div class="a-sub"><span class="' + cls(day) + '">当日 <b>' + money(day) + '</b> ' +
+        sign(dayPct) + '%</span>' +
+        '<span class="' + cls(pnl) + '">累计 <b>' + money(pnl) + '</b></span></div>' +
+      '<div class="hd"><span>名称 / 数量</span><span>现价</span><span>当日</span><span>累计</span></div>' +
+      rows +
+      '<div class="foot">' + (a.holdings || []).length + ' 只持仓 · 现金 ' + money(cash) + '</div>' +
+    '</div>';
   }
 
-  // 只要通道能响应就算活着（不看内容，跨域拿不到内容）
-  function probe(u, ms) {
-    return withTimeout(function (ctl) {
-      return fetch(u, {
-        mode: "no-cors", cache: "no-store", signal: ctl ? ctl.signal : undefined
-      }).then(function () { return true; });
-    }, ms || 6000).then(function () { return true; }, function () { return false; });
+  function render(q) {
+    renderIdx(q);
+    elAcc.innerHTML = (holdings.accounts || []).map(function (a) {
+      return accountCard(a, q);
+    }).join("");
   }
 
-  function run() {
-    done = false;
-    clearAll();
-    fail.classList.add("hide");
-    boot.classList.remove("hide");
-    bootTxt.textContent = "正在连接你的电脑…";
+  function setState(txt, off) {
+    elSt.textContent = txt;
+    elDot.className = "dot" + (off ? " off" : "");
+  }
+  function showBar(msg) { elBarTxt.textContent = msg; elBar.classList.add("on"); }
+  function hideBar() { elBar.classList.remove("on"); }
 
-    pickBest().then(function (best) {
-      if (!best) { toSnap("读不到通道地址"); return; }
-      if (best.updated) bootTxt.textContent = "正在连接（" + best.updated + " 的通道）…";
+  function writeSnap(q) {
+    try {
+      localStorage.setItem(SNAP_KEY, JSON.stringify({ t: Date.now(), q: q }));
+    } catch (e) {}
+  }
+  function readSnap() {
+    try { return JSON.parse(localStorage.getItem(SNAP_KEY) || "null"); } catch (e) { return null; }
+  }
 
-      probe(best.url, 6000).then(function (ok) {
-        if (ok) {
-          // 直接整页跳转：不在 iframe 里跑，避免跨站限制导致数据刷不出来
-          location.replace(best.url);
-          return;
-        }
-        bootTxt.textContent = "电脑没有响应，再试一次…";
-        loadApi(true).then(function (d) {
-          if (d && d.url && d.url !== best.url) {
-            probe(d.url, 5000).then(function (ok2) {
-              if (ok2) location.replace(d.url);
-              else toSnap("电脑不在线");
-            });
-          } else {
-            toSnap("电脑不在线");
-          }
-        }).catch(function () { toSnap("电脑不在线"); });
+  /* ================= 主循环 ================= */
+  function tick() {
+    if (!holdings) return;
+    var list = allSymbols();
+
+    fetchTencent(list)
+      .then(function (q) { srcName = ""; return q; })
+      .catch(function () { srcName = "备源"; return fetchEastmoney(list); })
+      .then(function (q) {
+        fails = 0; hideBar();
+        last = q; render(q); writeSnap(q);
+        setState(stamp(), !isLive());
+      })
+      .catch(function (e) {
+        fails++;
+        var s = readSnap();
+        if (s && s.q) { last = s.q; render(s.q); }
+        showBar("行情获取失败（第 " + fails + " 次），正在重试…" +
+          (s && s.t ? " 当前显示 " + new Date(s.t).toTimeString().slice(0, 5) + " 的数据" : ""));
+        setState("连接异常", true);
       });
-    }).catch(function () { toSnap("读不到通道地址"); });
-
-    // 总兜底：18 秒还没跳走就问一句
-    later(function () {
-      if (!done) {
-        bootTxt.textContent = "网络有点慢，可以点下面的按钮直接看快照";
-        done = true;
-        boot.classList.add("hide");
-        fail.classList.remove("hide");
-        failDesc.innerHTML = "等了 18 秒还没连上电脑。<br>电脑可能关机、睡眠，或网络不通。";
-      }
-    }, 18000);
   }
 
-  document.getElementById("retry").addEventListener("click", function () {
-    location.href = location.pathname + "?r=" + Date.now();
-  });
-  document.getElementById("snap").addEventListener("click", function () {
-    location.href = "./snap.html";
+  function schedule() {
+    if (timer) { clearInterval(timer); timer = null; }
+    if (isLive()) timer = setInterval(tick, LIVE_MS);
+  }
+
+  document.getElementById("btn").addEventListener("click", function () {
+    if (!holdings) { location.reload(); return; }
+    setState("刷新中…", true);
+    tick();
   });
 
-  run();
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && holdings) { tick(); schedule(); }
+  });
+
+  fetch("./holdings.json?t=" + Date.now(), { cache: "no-store" })
+    .then(function (r) { return r.json(); })
+    .then(function (h) {
+      holdings = h;
+      var s = readSnap();
+      if (s && s.q) { last = s.q; render(s.q); }
+      setState("连接中…", true);
+      tick();
+      schedule();
+    })
+    .catch(function () {
+      setState("缺少持仓配置", true);
+      showBar("没读到 holdings.json，无法计算持仓。");
+    });
 })();
 </script>
 </body>
