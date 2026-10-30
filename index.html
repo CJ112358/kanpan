@@ -20,21 +20,12 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
                  "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     -webkit-text-size-adjust: 100%;
-    overscroll-behavior: none;
   }
-  #frame {
-    position: fixed; inset: 0; width: 100%; height: 100%;
-    border: 0; display: block; background: #0b0f16;
-  }
-
-  /* 载入遮罩 */
-  #boot {
-    position: fixed; inset: 0; z-index: 9;
-    background: #0b0f16;
+  #wrap {
+    position: fixed; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 18px; transition: opacity .34s ease;
+    gap: 18px; padding: 28px 24px; text-align: center;
   }
-  #boot.gone { opacity: 0; pointer-events: none; }
   .spin {
     width: 30px; height: 30px; border-radius: 50%;
     border: 2.5px solid rgba(255, 255, 255, .14);
@@ -42,100 +33,81 @@
     animation: sp .82s linear infinite;
   }
   @keyframes sp { to { transform: rotate(360deg); } }
-  .boot-txt { font-size: 13px; color: #8a99ae; letter-spacing: .3px; text-align: center; padding: 0 24px; }
+  .txt { font-size: 13px; color: #8a99ae; letter-spacing: .3px; line-height: 1.7; }
+  .hide { display: none !important; }
 
-  /* 失败卡片 */
-  #fail {
-    position: fixed; inset: 0; z-index: 10; display: none;
-    background: #0b0f16;
-    padding: 28px 24px; text-align: center;
-  }
-  #fail.on { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #fail { max-width: 320px; }
   .f-ico {
-    width: 46px; height: 46px; border-radius: 50%; margin-bottom: 16px;
+    width: 46px; height: 46px; border-radius: 50%; margin: 0 auto 16px;
     display: grid; place-items: center;
     background: rgba(240, 180, 92, .12); border: 1px solid rgba(240, 180, 92, .32);
     color: #f0b45c; font-size: 22px; font-weight: 800;
   }
   .f-title { font-size: 16px; font-weight: 780; margin: 0 0 8px; }
-  .f-desc {
-    font-size: 12.5px; line-height: 1.75; color: #8a99ae;
-    margin: 0 0 22px; max-width: 300px;
-  }
+  .f-desc { font-size: 12.5px; line-height: 1.75; color: #8a99ae; margin: 0 0 20px; }
   .f-btn {
     font-family: inherit; font-size: 13.5px; font-weight: 750;
     color: #0b0f16; background: #6d8fff; border: 0;
     padding: 10px 26px; border-radius: 10px; cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
+    -webkit-tap-highlight-color: transparent; margin: 0 4px;
   }
-  .f-btn:active { transform: scale(.97); }
-  .f-link {
-    display: inline-block; margin-top: 16px;
-    font-size: 12px; color: #5b6b83; text-decoration: none;
-    border-bottom: 1px solid rgba(91, 107, 131, .4); padding-bottom: 1px;
-  }
-  .f-link2 { display: block; margin-top: 10px; font-size: 12px; color: #6d8fff; text-decoration: none; }
+  .f-btn.ghost { background: transparent; color: #8a99ae; border: 1px solid #2a3446; }
 </style>
 </head>
 <body>
 
-<iframe id="frame" title="量化看盘" allow="clipboard-write"></iframe>
+<div id="wrap">
+  <div id="boot">
+    <div class="spin"></div>
+    <div class="txt" id="boot-txt" style="margin-top:14px">正在连接你的电脑…</div>
+  </div>
 
-<div id="boot">
-  <div class="spin"></div>
-  <div class="boot-txt" id="boot-txt">正在连接你的电脑…</div>
-</div>
-
-<div id="fail">
-  <div class="f-ico">!</div>
-  <p class="f-title">连不上看盘服务</p>
-  <p class="f-desc" id="fail-desc">
-    电脑可能关机了，或者通道没开。<br>回到电脑上打开看板，把「换网络也能看」打开即可。
-  </p>
-  <button class="f-btn" id="retry">重试</button>
-  <a class="f-link" id="direct" href="#" target="_self" hidden>直接打不开？试原始地址</a>
-  <a class="f-link2" href="./snap.html">先看上次保存的快照 →</a>
+  <div id="fail" class="hide">
+    <div class="f-ico">!</div>
+    <p class="f-title">连不上看盘服务</p>
+    <p class="f-desc" id="fail-desc">
+      电脑可能关机了，或者通道没开。
+    </p>
+    <button class="f-btn" id="retry">重试</button>
+    <button class="f-btn ghost" id="snap">看快照</button>
+  </div>
 </div>
 
 <script>
 (function () {
   "use strict";
 
-  var frame = document.getElementById("frame");
   var boot = document.getElementById("boot");
   var bootTxt = document.getElementById("boot-txt");
   var fail = document.getElementById("fail");
   var failDesc = document.getElementById("fail-desc");
-  var direct = document.getElementById("direct");
   var done = false;
   var timers = [];
 
-  function clearTimers() {
-    timers.forEach(clearTimeout);
-    timers = [];
-  }
   function later(fn, ms) { var t = setTimeout(fn, ms); timers.push(t); return t; }
+  function clearAll() { timers.forEach(clearTimeout); timers = []; }
 
-  function hideBoot() {
+  function toSnap(why) {
     if (done) return;
     done = true;
-    clearTimers();
-    boot.classList.add("gone");
-    setTimeout(function () { boot.style.display = "none"; }, 400);
+    clearAll();
+    bootTxt.textContent = (why || "电脑不在线") + "，正在打开上次保存的快照…";
+    later(function () { location.replace("./snap.html"); }, 1100);
   }
 
-  function showFail(msg) {
+  function toFail(msg) {
     if (done) return;
-    clearTimers();
-    boot.style.display = "none";
-    fail.classList.add("on");
+    done = true;
+    clearAll();
+    boot.classList.add("hide");
+    fail.classList.remove("hide");
     if (msg) failDesc.innerHTML = msg;
   }
 
-  // 三个源同时读：同源 latest.json / raw（5 分钟 CDN）/ GitHub API（不走 CDN，有频次限制）。
-  // 关键：全部加超时。raw 与 api.github.com 在国内网络经常「连不上也不报错」，
-  // 没有超时就会永远卡在「正在连接你的电脑…」——这就是之前一直转圈的原因。
-  var SRC = ["./latest.json", "https://raw.githubusercontent.com/CJ112358/kanpan/main/latest.json"];
+  // 三个源同时读，全部带超时：raw / api.github.com 在国内 4G 经常「连不上也不报错」，
+  // 没有超时就会永远卡在「正在连接你的电脑…」
+  var SRC = ["./latest.json",
+             "https://raw.githubusercontent.com/CJ112358/kanpan/main/latest.json"];
   var API_SRC = "https://api.github.com/repos/CJ112358/kanpan/contents/latest.json";
   var API_KEY = "kp-api-cache";
 
@@ -200,25 +172,23 @@
     }, 4000);
   }
 
-  // 拿到第一个可用地址就先走，最多再多等 0.7 秒看有没有更新的时间戳
+  // 拿到第一个可用地址就先走，最多再等 0.7 秒看有没有更新的时间戳
   function pickBest() {
     var list = [loadOne(SRC[0]), loadOne(SRC[1]), loadApi()];
     return new Promise(function (resolve) {
-      var best = null, left = list.length, closed = false;
+      var best = null, left = list.length, closed = false, t0 = Date.now();
       function close(v) { if (!closed) { closed = true; resolve(v); } }
       function maybe() {
         left--;
         if (best && (left === 0 || Date.now() >= t0 + 700)) close(best);
         else if (!best && left === 0) close(null);
       }
-      var t0 = Date.now();
       list.forEach(function (p) {
         p.then(function (d) {
           if (!best || Number(d.ts || 0) > Number(best.ts || 0)) best = d;
           maybe();
         }, maybe);
       });
-      // 0.7 秒后只要有结果就先走；没结果就继续等（每个源 4 秒必断，不会无限等）
       setTimeout(function () { if (best) close(best); }, 720);
     });
   }
@@ -229,58 +199,58 @@
       return fetch(u, {
         mode: "no-cors", cache: "no-store", signal: ctl ? ctl.signal : undefined
       }).then(function () { return true; });
-    }, ms || 7000).then(function () { return true; }, function () { return false; });
-  }
-
-  function goLive(url) {
-    direct.href = url;
-    direct.hidden = false;
-    frame.src = url;
-    probe(url, 7000).then(function (ok) {
-      // 通道活着：最多再等 5 秒收遮罩，别死等 iframe 的 load（子资源慢时可能很久不触发）
-      if (ok) later(hideBoot, 5000);
-      else later(function () {
-        bootTxt.textContent = "连不上电脑，正在打开上次的快照…";
-        showSnap();
-      }, 800);
-    });
-    later(function () { bootTxt.textContent = "网络较慢，还在连接…"; }, 6000);
-    later(function () {
-      // 16 秒还没连上：先问一次真身地址，地址变了就换，否则上快照
-      bootTxt.textContent = "电脑好像没响应，正在打开上次的快照…";
-      loadApi(true).then(function (d) {
-        if (d && d.url && d.url !== url) goLive(d.url);
-        else showSnap();
-      }).catch(showSnap);
-    }, 16000);
-  }
-
-  function showSnap() {
-    clearTimers();
-    bootTxt.textContent = "电脑不在线，正在打开上次的快照…";
-    frame.src = "./snap.html?t=" + Date.now();
+    }, ms || 6000).then(function () { return true; }, function () { return false; });
   }
 
   function run() {
     done = false;
-    clearTimers();
-    fail.classList.remove("on");
-    boot.style.display = "flex";
-    boot.classList.remove("gone");
+    clearAll();
+    fail.classList.add("hide");
+    boot.classList.remove("hide");
     bootTxt.textContent = "正在连接你的电脑…";
 
     pickBest().then(function (best) {
-      if (!best) { showSnap(); return; }
+      if (!best) { toSnap("读不到通道地址"); return; }
       if (best.updated) bootTxt.textContent = "正在连接（" + best.updated + " 的通道）…";
-      goLive(best.url);
-    }).catch(function () { showSnap(); });
+
+      probe(best.url, 6000).then(function (ok) {
+        if (ok) {
+          // 直接整页跳转：不在 iframe 里跑，避免跨站限制导致数据刷不出来
+          location.replace(best.url);
+          return;
+        }
+        bootTxt.textContent = "电脑没有响应，再试一次…";
+        loadApi(true).then(function (d) {
+          if (d && d.url && d.url !== best.url) {
+            probe(d.url, 5000).then(function (ok2) {
+              if (ok2) location.replace(d.url);
+              else toSnap("电脑不在线");
+            });
+          } else {
+            toSnap("电脑不在线");
+          }
+        }).catch(function () { toSnap("电脑不在线"); });
+      });
+    }).catch(function () { toSnap("读不到通道地址"); });
+
+    // 总兜底：18 秒还没跳走就问一句
+    later(function () {
+      if (!done) {
+        bootTxt.textContent = "网络有点慢，可以点下面的按钮直接看快照";
+        done = true;
+        boot.classList.add("hide");
+        fail.classList.remove("hide");
+        failDesc.innerHTML = "等了 18 秒还没连上电脑。<br>电脑可能关机、睡眠，或网络不通。";
+      }
+    }, 18000);
   }
 
-  frame.addEventListener("load", function () {
-    if (frame.src) setTimeout(hideBoot, 260);
+  document.getElementById("retry").addEventListener("click", function () {
+    location.href = location.pathname + "?r=" + Date.now();
   });
-
-  document.getElementById("retry").addEventListener("click", run);
+  document.getElementById("snap").addEventListener("click", function () {
+    location.href = "./snap.html";
+  });
 
   run();
 })();
