@@ -236,8 +236,12 @@
     direct.hidden = false;
     frame.src = url;
     probe(url, 7000).then(function (ok) {
-      // 通道活着就尽早收起遮罩，别等 iframe 的 load（子资源慢时会很久甚至不触发）
-      if (ok) later(hideBoot, 1400);
+      // 通道活着：最多再等 5 秒收遮罩，别死等 iframe 的 load（子资源慢时可能很久不触发）
+      if (ok) later(hideBoot, 5000);
+      else later(function () {
+        bootTxt.textContent = "连不上电脑，正在打开上次的快照…";
+        showSnap();
+      }, 800);
     });
     later(function () { bootTxt.textContent = "网络较慢，还在连接…"; }, 6000);
     later(function () {
