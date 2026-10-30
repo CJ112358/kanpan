@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f16">
+<title>图标自检</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;padding:16px 14px 40px;background:#0b0f16;color:#e8eef8;
+       font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  h1{font-size:17px;margin:0 0 4px}
+  .sub{color:#8a97ab;font-size:12.5px;margin-bottom:16px;word-break:break-all}
+  .card{background:#141b26;border:1px solid #1f2a3a;border-radius:14px;padding:14px;margin-bottom:12px}
+  .card h2{font-size:13px;color:#8fa0b8;margin:0 0 10px;font-weight:650;letter-spacing:.4px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .item{text-align:center;font-size:11px;color:#8a97ab}
+  .item img{border-radius:12px;display:block;background:#0b0f16;margin-bottom:4px}
+  .ok{color:#39d98a}.bad{color:#ff6b6b}.warn{color:#ffb020}
+  code{background:#0b0f16;padding:1px 5px;border-radius:5px;font-size:12px;color:#9fd0ff}
+  ul{margin:0;padding-left:18px}li{margin:3px 0;font-size:13.5px}
+  a{color:#6d8fff;text-decoration:none}
+</style>
+</head>
+<body>
+<h1>图标自检</h1>
+<div class="sub" id="loc"></div>
+
+<div class="card">
+  <h2>MANIFEST 图标（安卓安装时用这个）</h2>
+  <div class="row" id="icons"></div>
+  <div id="mtxt" style="margin-top:10px;font-size:12.5px;color:#8a97ab"></div>
+</div>
+
+<div class="card">
+  <h2>FAVICON（浏览器快捷方式用这个）</h2>
+  <div class="row">
+    <div class="item"><img src="./favicon-180.png" width="90" height="90">180px</div>
+    <div class="item"><img src="./favicon-32.png" width="32" height="32">32px</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>PWA 状态</h2>
+  <ul id="sw"><li>检测中…</li></ul>
+</div>
+
+<div class="card">
+  <h2>怎么重新添加</h2>
+  <ul>
+    <li>先<strong>长按主屏旧图标 → 删除</strong></li>
+    <li>Chrome 菜单里选<strong>「安装应用」</strong>（有这一项说明新配置已生效）</li>
+    <li>如果只有「添加到主屏幕」，也能用，图标取 FAVICON</li>
+    <li>仍显示旧图标：Chrome 设置 → 网站设置 → <code>cj112358.github.io</code> → 清除并重置</li>
+  </ul>
+</div>
+
+<script>
+(function () {
+  document.getElementById("loc").textContent = location.href;
+
+  // 1) manifest
+  var link = document.querySelector('link[rel="manifest"]');
+  var mUrl = link ? link.href : "./manifest-v3.webmanifest";
+  fetch(mUrl + "?t=" + Date.now(), { cache: "no-store" })
+    .then(function (r) { return r.json(); })
+    .then(function (m) {
+      var box = document.getElementById("icons");
+      (m.icons || []).forEach(function (ic) {
+        var d = document.createElement("div");
+        d.className = "item";
+        var img = document.createElement("img");
+        img.src = ic.src;
+        var s = parseInt(ic.sizes, 10) || 96;
+        var px = s > 120 ? 110 : s;
+        img.width = px; img.height = px;
+        d.appendChild(img);
+        d.appendChild(document.createTextNode(ic.sizes + (ic.purpose ? " · " + ic.purpose : "")));
+        box.appendChild(d);
+      });
+      document.getElementById("mtxt").innerHTML =
+        "manifest：<code>" + mUrl.split("/").pop() + "</code>　id：<code>" +
+        (m.id || "(未设置)") + "</code>　启动：" + (m.display || "-");
+    })
+    .catch(function () {
+      document.getElementById("mtxt").innerHTML =
+        '<span class="bad">读不到 manifest（' + mUrl.split("/").pop() + '）</span>';
+    });
+
+  // 2) service worker
+  var ul = document.getElementById("sw");
+  function line(t) { var li = document.createElement("li"); li.innerHTML = t; ul.appendChild(li); }
+  ul.innerHTML = "";
+  if (!("serviceWorker" in navigator)) {
+    line('<span class="bad">此浏览器不支持 Service Worker</span> — 只能生成普通快捷方式，图标取 FAVICON');
+  } else if (!window.isSecureContext) {
+    line('<span class="bad">非 HTTPS 环境，无法注册</span>');
+  } else {
+    navigator.serviceWorker.getRegistrations().then(function (rs) {
+      if (!rs.length) { line('<span class="warn">尚未注册</span>（刷新一次即会注册）'); return; }
+      rs.forEach(function (r) {
+        var st = (r.active && "active") || (r.installing && "installing") || (r.waiting && "waiting") || "unknown";
+        var cls = st === "active" ? "ok" : "warn";
+        line('Service Worker：<span class="' + cls + '">' + st + '</span>　scope：<code>' +
+             (r.scope || "").replace(location.origin, "") + '</code>');
+      });
+      line('<span class="ok">已满足「可安装应用」条件</span> —— Chrome 菜单里应出现「安装应用」');
+    });
+  }
+
+  // 3) 安装提示
+  window.addEventListener("beforeinstallprompt", function () {
+    line('<span class="ok">浏览器已判定可安装</span>');
+  });
+})();
+</script>
+</body>
+</html>
