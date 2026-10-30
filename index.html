@@ -209,26 +209,20 @@
           if (d && d.url && d.url !== best.url) {
             direct.href = d.url;
             frame.src = d.url;
-            timer = setTimeout(function () {
-              showFail(
-                "等了 40 秒还是没连上。<br>电脑可能关机、睡眠，或者通道被关掉了。" +
-                "<br><span style='color:#5b6b83'>最后更新：" + (d.updated || "未知") + "</span>"
-              );
-            }, 20000);
+            timer = setTimeout(showSnap, 20000);
           } else {
-            showFail(
-              "等了 20 秒没连上。<br>电脑可能关机、睡眠，或者通道被关掉了。" +
-              "<br><span style='color:#5b6b83'>最后更新：" + (best.updated || "未知") + "</span>"
-            );
+            showSnap();
           }
-        }).catch(function () {
-          showFail(
-            "等了 20 秒没连上。<br>电脑可能关机、睡眠，或者通道被关掉了。" +
-            "<br><span style='color:#5b6b83'>最后更新：" + (best.updated || "未知") + "</span>"
-          );
-        });
+        }).catch(showSnap);
       }, 20000);
     });
+  }
+
+  // 电脑不在线：直接展示上一次保存的完整快照，而不是一个「连不上」的死页面
+  function showSnap() {
+    clearTimeout(timer);
+    bootTxt.textContent = "电脑不在线，正在打开上次的快照…";
+    frame.src = "./snap.html?t=" + Date.now();
   }
 
   frame.addEventListener("load", function () {
