@@ -8,9 +8,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="量化看盘">
-<link rel="manifest" href="./manifest.webmanifest?v=2">
+<link rel="manifest" href="./manifest-v3.webmanifest">
 <link rel="apple-touch-icon" href="./apple-touch-icon-v2.png">
-<link rel="icon" href="./icon-192-v2.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./favicon-180.png">
+<link rel="icon" href="./favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192-v2.png">
+<link rel="shortcut icon" href="./favicon.ico">
 <title>量化看盘 · 实时</title>
 <style>
   :root{
@@ -368,6 +372,14 @@
       setState("缺少持仓配置", true);
       showBar("没读到 holdings.json，无法计算持仓。");
     });
+
+  /* 注册 Service Worker：安卓 Chrome 靠它把本站识别为「可安装应用」，
+     主屏图标才会用 manifest 里的图标而不是 favicon */
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("./sw.js").catch(function () {});
+    });
+  }
 })();
 </script>
 </body>
