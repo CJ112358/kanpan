@@ -91,7 +91,7 @@
   <div class="idx" id="idx"></div>
   <div id="accts"></div>
 
-  <div class="tip">红涨绿跌 · 行情来自交易所公开接口<br>盘中约 3 秒刷新，收盘后停止 · 本页不依赖任何电脑<br>
+  <div class="tip">红涨绿跌 · 行情来自交易所公开接口<br>盘中约 2 秒刷新，收盘后停止 · 本页不依赖任何电脑<br>
     <a href="./snap.html" style="color:#6d8fff;text-decoration:none;font-weight:650">策略建议与板块排行 →</a></div>
 </div>
 
@@ -99,7 +99,7 @@
 (function () {
   "use strict";
 
-  var LIVE_MS = 3000;
+  var LIVE_MS = 2000;
   var SNAP_KEY = "kp-live-snap";
   var IDX = [["上证指数", "sh000001"], ["深证成指", "sz399001"],
              ["创业板指", "sz399006"], ["科创50", "sh000688"]];
@@ -111,7 +111,7 @@
   var elBar = document.getElementById("bar");
   var elBarTxt = document.getElementById("bar-txt");
 
-  var holdings = null, timer = null, last = null, fails = 0, srcName = "";
+  var holdings = null, timer = null, last = null, fails = 0, srcName = "", busy = false;
 
   function f(v) { var x = parseFloat(v); return isNaN(x) ? null : x; }
 
@@ -164,7 +164,7 @@
   function fetchTencent(list) {
     var url = "https://qt.gtimg.cn/q=" + list.join(",") + "&_=" + Date.now();
     var ctl = window.AbortController ? new AbortController() : null;
-    var tid = setTimeout(function () { if (ctl) { try { ctl.abort(); } catch (e) {} } }, 6000);
+    var tid = setTimeout(function () { if (ctl) { try { ctl.abort(); } catch (e) {} } }, 2600);
     return fetch(url, { cache: "no-store", signal: ctl ? ctl.signal : undefined })
       .then(function (r) {
         if (!r.ok) throw new Error("tencent http " + r.status);
@@ -196,7 +196,7 @@
     var url = "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=" + ids.join(",") +
               "&fields=f2,f3,f4,f12,f13,f14,f18&_=" + Date.now();
     var ctl = window.AbortController ? new AbortController() : null;
-    var tid = setTimeout(function () { if (ctl) { try { ctl.abort(); } catch (e) {} } }, 4000);
+    var tid = setTimeout(function () { if (ctl) { try { ctl.abort(); } catch (e) {} } }, 2000);
     return fetch(url, { cache: "no-store", signal: ctl ? ctl.signal : undefined })
       .then(function (r) {
         if (!r.ok) throw new Error("em http " + r.status);
@@ -308,8 +308,11 @@
 
   /* ================= 主循环 ================= */
   function tick() {
-    if (!holdings) return;
+    if (!holdings || busy) return;   // 上一轮还没回来就跳过，避免 2 秒间隔下请求堆叠
+    busy = true;
     var list = allSymbols();
+
+    function done() { busy = false; }
 
     fetchTencent(list)
       .then(function (q) { srcName = ""; return q; })
@@ -318,15 +321,17 @@
         fails = 0; hideBar();
         last = q; render(q); writeSnap(q);
         setState(stamp(), !isLive());
-      })
-      .catch(function (e) {
+        done();
+      }, function () {
         fails++;
         var s = readSnap();
         if (s && s.q) { last = s.q; render(s.q); }
         showBar("行情获取失败（第 " + fails + " 次），正在重试…" +
           (s && s.t ? " 当前显示 " + new Date(s.t).toTimeString().slice(0, 5) + " 的数据" : ""));
         setState("连接异常", true);
-      });
+        done();
+      })
+      .catch(function () { done(); });   // 兜底：渲染出错也不会卡死轮询
   }
 
   function schedule() {
@@ -336,12 +341,17 @@
 
   document.getElementById("btn").addEventListener("click", function () {
     if (!holdings) { location.reload(); return; }
+    if (busy) return;
     setState("刷新中…", true);
     tick();
   });
 
   document.addEventListener("visibilitychange", function () {
-    if (!document.hidden && holdings) { tick(); schedule(); }
+    if (document.hidden) {                       // 切到后台就停，省流量省电
+      if (timer) { clearInterval(timer); timer = null; }
+      return;
+    }
+    if (holdings) { tick(); schedule(); }
   });
 
   fetch("./holdings.json?t=" + Date.now(), { cache: "no-store" })
