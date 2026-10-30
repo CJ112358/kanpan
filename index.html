@@ -42,7 +42,7 @@
     animation: sp .82s linear infinite;
   }
   @keyframes sp { to { transform: rotate(360deg); } }
-  .boot-txt { font-size: 13px; color: #8a99ae; letter-spacing: .3px; }
+  .boot-txt { font-size: 13px; color: #8a99ae; letter-spacing: .3px; text-align: center; padding: 0 24px; }
 
   /* 失败卡片 */
   #fail {
@@ -74,6 +74,7 @@
     font-size: 12px; color: #5b6b83; text-decoration: none;
     border-bottom: 1px solid rgba(91, 107, 131, .4); padding-bottom: 1px;
   }
+  .f-link2 { display: block; margin-top: 10px; font-size: 12px; color: #6d8fff; text-decoration: none; }
 </style>
 </head>
 <body>
@@ -93,6 +94,7 @@
   </p>
   <button class="f-btn" id="retry">重试</button>
   <a class="f-link" id="direct" href="#" target="_self" hidden>直接打不开？试原始地址</a>
+  <a class="f-link2" href="./snap.html">先看上次保存的快照 →</a>
 </div>
 
 <script>
@@ -106,65 +108,87 @@
   var failDesc = document.getElementById("fail-desc");
   var direct = document.getElementById("direct");
   var done = false;
-  var timer = null;
+  var timers = [];
+
+  function clearTimers() {
+    timers.forEach(clearTimeout);
+    timers = [];
+  }
+  function later(fn, ms) { var t = setTimeout(fn, ms); timers.push(t); return t; }
 
   function hideBoot() {
     if (done) return;
     done = true;
+    clearTimers();
     boot.classList.add("gone");
-    clearTimeout(timer);
     setTimeout(function () { boot.style.display = "none"; }, 400);
   }
 
   function showFail(msg) {
-    if (done) return;               // 已经加载出来了就别再盖一层
-    clearTimeout(timer);
+    if (done) return;
+    clearTimers();
     boot.style.display = "none";
     fail.classList.add("on");
     if (msg) failDesc.innerHTML = msg;
   }
 
-  // 三个源同时读：raw 有约 5 分钟 CDN 缓存、Pages 约 10 分钟，
-  // GitHub API 不走 CDN 最准（有频次限制，所以本地缓存 3 分钟）。
-  // 最后按时间戳取最新的那个。
-  var SRC = [
-    "https://raw.githubusercontent.com/CJ112358/kanpan/main/latest.json",
-    "./latest.json"
-  ];
+  // 三个源同时读：同源 latest.json / raw（5 分钟 CDN）/ GitHub API（不走 CDN，有频次限制）。
+  // 关键：全部加超时。raw 与 api.github.com 在国内网络经常「连不上也不报错」，
+  // 没有超时就会永远卡在「正在连接你的电脑…」——这就是之前一直转圈的原因。
+  var SRC = ["./latest.json", "https://raw.githubusercontent.com/CJ112358/kanpan/main/latest.json"];
   var API_SRC = "https://api.github.com/repos/CJ112358/kanpan/contents/latest.json";
   var API_KEY = "kp-api-cache";
 
+  function withTimeout(makeFetch, ms) {
+    return new Promise(function (resolve, reject) {
+      var ctl = window.AbortController ? new AbortController() : null;
+      var fired = false;
+      var t = setTimeout(function () {
+        fired = true;
+        if (ctl) { try { ctl.abort(); } catch (e) {} }
+        reject(new Error("timeout"));
+      }, ms || 4000);
+      makeFetch(ctl).then(function (v) {
+        if (fired) return;
+        clearTimeout(t); resolve(v);
+      }, function (e) {
+        if (fired) return;
+        clearTimeout(t); reject(e);
+      });
+    });
+  }
+
   function loadOne(u) {
     var sep = u.indexOf("?") < 0 ? "?" : "&";
-    return fetch(u + sep + "t=" + Date.now(), { cache: "no-store" })
-      .then(function (r) {
+    return withTimeout(function (ctl) {
+      return fetch(u + sep + "t=" + Date.now(), {
+        cache: "no-store", signal: ctl ? ctl.signal : undefined
+      }).then(function (r) {
         if (!r.ok) throw new Error("http " + r.status);
         return r.json();
-      })
-      .then(function (d) {
+      }).then(function (d) {
         if (!d || !d.url) throw new Error("empty");
         return d;
       });
+    }, 4000);
   }
 
   function loadApi(fresh) {
     if (!fresh) {
       try {
         var c = JSON.parse(localStorage.getItem(API_KEY) || "null");
-        if (c && c.t && Date.now() - c.t < 60000 && c.url) {
-          return Promise.resolve(c);
-        }
+        if (c && c.t && Date.now() - c.t < 60000 && c.url) return Promise.resolve(c);
       } catch (e) {}
     }
-    return fetch(API_SRC + "?t=" + Date.now(), { cache: "no-store" })
-      .then(function (r) {
+    return withTimeout(function (ctl) {
+      return fetch(API_SRC + "?t=" + Date.now(), {
+        cache: "no-store", signal: ctl ? ctl.signal : undefined
+      }).then(function (r) {
         if (!r.ok) throw new Error("http " + r.status);
         return r.json();
-      })
-      .then(function (j) {
+      }).then(function (j) {
         var txt = "";
         if (j && j.content) {
-          // GitHub 返回 base64，且带换行，去掉再解
           txt = decodeURIComponent(escape(window.atob(String(j.content).replace(/\s+/g, ""))));
         }
         var d = JSON.parse(txt);
@@ -173,56 +197,78 @@
         try { localStorage.setItem(API_KEY, JSON.stringify(d)); } catch (e) {}
         return d;
       });
+    }, 4000);
+  }
+
+  // 拿到第一个可用地址就先走，最多再多等 0.7 秒看有没有更新的时间戳
+  function pickBest() {
+    var list = [loadOne(SRC[0]), loadOne(SRC[1]), loadApi()];
+    return new Promise(function (resolve) {
+      var best = null, left = list.length, closed = false;
+      function close(v) { if (!closed) { closed = true; resolve(v); } }
+      function maybe() {
+        left--;
+        if (best && (left === 0 || Date.now() >= t0 + 700)) close(best);
+        else if (!best && left === 0) close(null);
+      }
+      var t0 = Date.now();
+      list.forEach(function (p) {
+        p.then(function (d) {
+          if (!best || Number(d.ts || 0) > Number(best.ts || 0)) best = d;
+          maybe();
+        }, maybe);
+      });
+      setTimeout(function () { close(best); }, 720);
+    });
+  }
+
+  // 只要通道能响应就算活着（不看内容，跨域拿不到内容）
+  function probe(u, ms) {
+    return withTimeout(function (ctl) {
+      return fetch(u, {
+        mode: "no-cors", cache: "no-store", signal: ctl ? ctl.signal : undefined
+      }).then(function () { return true; });
+    }, ms || 7000).then(function () { return true; }, function () { return false; });
+  }
+
+  function goLive(url) {
+    direct.href = url;
+    direct.hidden = false;
+    frame.src = url;
+    probe(url, 7000).then(function (ok) {
+      // 通道活着就尽早收起遮罩，别等 iframe 的 load（子资源慢时会很久甚至不触发）
+      if (ok) later(hideBoot, 1400);
+    });
+    later(function () { bootTxt.textContent = "网络较慢，还在连接…"; }, 6000);
+    later(function () {
+      // 16 秒还没连上：先问一次真身地址，地址变了就换，否则上快照
+      bootTxt.textContent = "电脑好像没响应，正在打开上次的快照…";
+      loadApi(true).then(function (d) {
+        if (d && d.url && d.url !== url) goLive(d.url);
+        else showSnap();
+      }).catch(showSnap);
+    }, 16000);
+  }
+
+  function showSnap() {
+    clearTimers();
+    bootTxt.textContent = "电脑不在线，正在打开上次的快照…";
+    frame.src = "./snap.html?t=" + Date.now();
   }
 
   function run() {
     done = false;
+    clearTimers();
     fail.classList.remove("on");
     boot.style.display = "flex";
     boot.classList.remove("gone");
     bootTxt.textContent = "正在连接你的电脑…";
-    clearTimeout(timer);
 
-    Promise.allSettled([loadOne(SRC[0]), loadOne(SRC[1]), loadApi()]).then(function (rs) {
-      var best = null;
-      rs.forEach(function (r) {
-        if (r.status !== "fulfilled") return;
-        var d = r.value;
-        if (!best || Number(d.ts || 0) > Number(best.ts || 0)) best = d;
-      });
-
-      if (!best) {
-        showFail("读不到通道地址。<br>这台电脑还没开过通道，或者网络不通。");
-        return;
-      }
-
-      direct.href = best.url;
-      direct.hidden = false;
+    pickBest().then(function (best) {
+      if (!best) { showSnap(); return; }
       if (best.updated) bootTxt.textContent = "正在连接（" + best.updated + " 的通道）…";
-      frame.src = best.url;
-
-      timer = setTimeout(function () {
-        // 超时很可能是因为 CDN 缓存里的地址已经过期（电脑换过通道）。
-        // 直接问 GitHub API 拿真身，地址变了就静默重来一次。
-        bootTxt.textContent = "地址可能刚更新，正在重新获取…";
-        loadApi(true).then(function (d) {
-          if (d && d.url && d.url !== best.url) {
-            direct.href = d.url;
-            frame.src = d.url;
-            timer = setTimeout(showSnap, 12000);
-          } else {
-            showSnap();
-          }
-        }).catch(showSnap);
-      }, 12000);
-    });
-  }
-
-  // 电脑不在线：直接展示上一次保存的完整快照，而不是一个「连不上」的死页面
-  function showSnap() {
-    clearTimeout(timer);
-    bootTxt.textContent = "电脑不在线，正在打开上次的快照…";
-    frame.src = "./snap.html?t=" + Date.now();
+      goLive(best.url);
+    }).catch(function () { showSnap(); });
   }
 
   frame.addEventListener("load", function () {
