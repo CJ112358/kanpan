@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f16">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="量化看盘">
+<meta name="application-name" content="量化看盘">
+<title>量化看盘</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #0b0f16; color: #e9eff8;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior: none;
+  }
+  #frame {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    border: 0; display: block; background: #0b0f16;
+  }
+
+  /* 载入遮罩 */
+  #boot {
+    position: fixed; inset: 0; z-index: 9;
+    background: #0b0f16;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; transition: opacity .34s ease;
+  }
+  #boot.gone { opacity: 0; pointer-events: none; }
+  .spin {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 2.5px solid rgba(255, 255, 255, .14);
+    border-top-color: #6d8fff;
+    animation: sp .82s linear infinite;
+  }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .boot-txt { font-size: 13px; color: #8a99ae; letter-spacing: .3px; }
+
+  /* 失败卡片 */
+  #fail {
+    position: fixed; inset: 0; z-index: 10; display: none;
+    background: #0b0f16;
+    padding: 28px 24px; text-align: center;
+  }
+  #fail.on { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .f-ico {
+    width: 46px; height: 46px; border-radius: 50%; margin-bottom: 16px;
+    display: grid; place-items: center;
+    background: rgba(240, 180, 92, .12); border: 1px solid rgba(240, 180, 92, .32);
+    color: #f0b45c; font-size: 22px; font-weight: 800;
+  }
+  .f-title { font-size: 16px; font-weight: 780; margin: 0 0 8px; }
+  .f-desc {
+    font-size: 12.5px; line-height: 1.75; color: #8a99ae;
+    margin: 0 0 22px; max-width: 300px;
+  }
+  .f-btn {
+    font-family: inherit; font-size: 13.5px; font-weight: 750;
+    color: #0b0f16; background: #6d8fff; border: 0;
+    padding: 10px 26px; border-radius: 10px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .f-btn:active { transform: scale(.97); }
+  .f-link {
+    display: inline-block; margin-top: 16px;
+    font-size: 12px; color: #5b6b83; text-decoration: none;
+    border-bottom: 1px solid rgba(91, 107, 131, .4); padding-bottom: 1px;
+  }
+</style>
+</head>
+<body>
+
+<iframe id="frame" title="量化看盘" allow="clipboard-write"></iframe>
+
+<div id="boot">
+  <div class="spin"></div>
+  <div class="boot-txt" id="boot-txt">正在连接你的电脑…</div>
+</div>
+
+<div id="fail">
+  <div class="f-ico">!</div>
+  <p class="f-title">连不上看盘服务</p>
+  <p class="f-desc" id="fail-desc">
+    电脑可能关机了，或者通道没开。<br>回到电脑上打开看板，把「换网络也能看」打开即可。
+  </p>
+  <button class="f-btn" id="retry">重试</button>
+  <a class="f-link" id="direct" href="#" target="_self" hidden>直接打不开？试原始地址</a>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var frame = document.getElementById("frame");
+  var boot = document.getElementById("boot");
+  var bootTxt = document.getElementById("boot-txt");
+  var fail = document.getElementById("fail");
+  var failDesc = document.getElementById("fail-desc");
+  var direct = document.getElementById("direct");
+  var done = false;
+  var timer = null;
+
+  function hideBoot() {
+    if (done) return;
+    done = true;
+    boot.classList.add("gone");
+    clearTimeout(timer);
+    setTimeout(function () { boot.style.display = "none"; }, 400);
+  }
+
+  function showFail(msg) {
+    clearTimeout(timer);
+    boot.style.display = "none";
+    fail.classList.add("on");
+    if (msg) failDesc.innerHTML = msg;
+  }
+
+  function run() {
+    done = false;
+    fail.classList.remove("on");
+    boot.style.display = "flex";
+    boot.classList.remove("gone");
+    bootTxt.textContent = "正在连接你的电脑…";
+
+    fetch("latest.json?t=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.url) throw new Error("empty");
+        direct.href = d.url;
+        direct.hidden = false;
+        if (d.updated) bootTxt.textContent = "正在连接（通道更新于 " + d.updated + "）…";
+        frame.src = d.url;
+
+        timer = setTimeout(function () {
+          // 8 秒还没影，就当连不上
+          showFail(
+            "等了 8 秒没连上。<br>电脑可能关机、睡眠，或者通道被关掉了。" +
+            "<br><span style='color:#5b6b83'>通道更新于 " + (d.updated || "未知") + "</span>"
+          );
+        }, 8000);
+      })
+      .catch(function () {
+        showFail(
+          "读不到通道地址。<br>这台电脑还没开过通道，" +
+          "<br>或者 GitHub 上的 latest.json 没更新。"
+        );
+      });
+  }
+
+  frame.addEventListener("load", function () {
+    if (frame.src) setTimeout(hideBoot, 260);
+  });
+
+  document.getElementById("retry").addEventListener("click", run);
+
+  run();
+})();
+</script>
+</body>
+</html>
