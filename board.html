@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f16">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="量化看盘">
+<meta name="application-name" content="量化看盘">
+<title>量化看盘</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #0b0f16; color: #e9eff8;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  #wrap {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; padding: 28px 24px; text-align: center;
+  }
+  .spin {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 2.5px solid rgba(255, 255, 255, .14);
+    border-top-color: #6d8fff;
+    animation: sp .82s linear infinite;
+  }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .txt { font-size: 13px; color: #8a99ae; letter-spacing: .3px; line-height: 1.7; }
+  .hide { display: none !important; }
+
+  #fail { max-width: 320px; }
+  .f-ico {
+    width: 46px; height: 46px; border-radius: 50%; margin: 0 auto 16px;
+    display: grid; place-items: center;
+    background: rgba(240, 180, 92, .12); border: 1px solid rgba(240, 180, 92, .32);
+    color: #f0b45c; font-size: 22px; font-weight: 800;
+  }
+  .f-title { font-size: 16px; font-weight: 780; margin: 0 0 8px; }
+  .f-desc { font-size: 12.5px; line-height: 1.75; color: #8a99ae; margin: 0 0 20px; }
+  .f-btn {
+    font-family: inherit; font-size: 13.5px; font-weight: 750;
+    color: #0b0f16; background: #6d8fff; border: 0;
+    padding: 10px 26px; border-radius: 10px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; margin: 0 4px;
+  }
+  .f-btn.ghost { background: transparent; color: #8a99ae; border: 1px solid #2a3446; }
+</style>
+</head>
+<body>
+
+<div id="wrap">
+  <div id="boot">
+    <div class="spin"></div>
+    <div class="txt" id="boot-txt" style="margin-top:14px">正在连接你的电脑…</div>
+  </div>
+
+  <div id="fail" class="hide">
+    <div class="f-ico">!</div>
+    <p class="f-title">连不上看盘服务</p>
+    <p class="f-desc" id="fail-desc">
+      电脑可能关机了，或者通道没开。
+    </p>
+    <button class="f-btn" id="retry">重试</button>
+    <button class="f-btn ghost" id="snap">看快照</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var boot = document.getElementById("boot");
+  var bootTxt = document.getElementById("boot-txt");
+  var fail = document.getElementById("fail");
+  var failDesc = document.getElementById("fail-desc");
+  var done = false;
+  var timers = [];
+
+  function later(fn, ms) { var t = setTimeout(fn, ms); timers.push(t); return t; }
+  function clearAll() { timers.forEach(clearTimeout); timers = []; }
+
+  function toSnap(why) {
+    if (done) return;
+    done = true;
+    clearAll();
+    bootTxt.textContent = (why || "电脑不在线") + "，正在打开上次保存的快照…";
+    later(function () { location.replace("./snap.html"); }, 1100);
+  }
+
+  function toFail(msg) {
+    if (done) return;
+    done = true;
+    clearAll();
+    boot.classList.add("hide");
+    fail.classList.remove("hide");
+    if (msg) failDesc.innerHTML = msg;
+  }
+
+  // 三个源同时读，全部带超时：raw / api.github.com 在国内 4G 经常「连不上也不报错」，
+  // 没有超时就会永远卡在「正在连接你的电脑…」
+  var SRC = ["./latest.json",
+             "https://raw.githubusercontent.com/CJ112358/kanpan/main/latest.json"];
+  var API_SRC = "https://api.github.com/repos/CJ112358/kanpan/contents/latest.json";
+  var API_KEY = "kp-api-cache";
+
+  function withTimeout(makeFetch, ms) {
+    return new Promise(function (resolve, reject) {
+      var ctl = window.AbortController ? new AbortController() : null;
+      var fired = false;
+      var t = setTimeout(function () {
+        fired = true;
+        if (ctl) { try { ctl.abort(); } catch (e) {} }
+        reject(new Error("timeout"));
+      }, ms || 4000);
+      makeFetch(ctl).then(function (v) {
+        if (fired) return;
+        clearTimeout(t); resolve(v);
+      }, function (e) {
+        if (fired) return;
+        clearTimeout(t); reject(e);
+      });
+    });
+  }
+
+  function loadOne(u) {
+    var sep = u.indexOf("?") < 0 ? "?" : "&";
+    return withTimeout(function (ctl) {
+      return fetch(u + sep + "t=" + Date.now(), {
+        cache: "no-store", signal: ctl ? ctl.signal : undefined
+      }).then(function (r) {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      }).then(function (d) {
+        if (!d || !d.url) throw new Error("empty");
+        return d;
+      });
+    }, 4000);
+  }
+
+  function loadApi(fresh) {
+    if (!fresh) {
+      try {
+        var c = JSON.parse(localStorage.getItem(API_KEY) || "null");
+        if (c && c.t && Date.now() - c.t < 60000 && c.url) return Promise.resolve(c);
+      } catch (e) {}
+    }
+    return withTimeout(function (ctl) {
+      return fetch(API_SRC + "?t=" + Date.now(), {
+        cache: "no-store", signal: ctl ? ctl.signal : undefined
+      }).then(function (r) {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      }).then(function (j) {
+        var txt = "";
+        if (j && j.content) {
+          txt = decodeURIComponent(escape(window.atob(String(j.content).replace(/\s+/g, ""))));
+        }
+        var d = JSON.parse(txt);
+        if (!d || !d.url) throw new Error("empty");
+        d.t = Date.now();
+        try { localStorage.setItem(API_KEY, JSON.stringify(d)); } catch (e) {}
+        return d;
+      });
+    }, 4000);
+  }
+
+  // 拿到第一个可用地址就先走，最多再等 0.7 秒看有没有更新的时间戳
+  function pickBest() {
+    var list = [loadOne(SRC[0]), loadOne(SRC[1]), loadApi()];
+    return new Promise(function (resolve) {
+      var best = null, left = list.length, closed = false, t0 = Date.now();
+      function close(v) { if (!closed) { closed = true; resolve(v); } }
+      function maybe() {
+        left--;
+        if (best && (left === 0 || Date.now() >= t0 + 700)) close(best);
+        else if (!best && left === 0) close(null);
+      }
+      list.forEach(function (p) {
+        p.then(function (d) {
+          if (!best || Number(d.ts || 0) > Number(best.ts || 0)) best = d;
+          maybe();
+        }, maybe);
+      });
+      setTimeout(function () { if (best) close(best); }, 720);
+    });
+  }
+
+  // 只要通道能响应就算活着（不看内容，跨域拿不到内容）
+  function probe(u, ms) {
+    return withTimeout(function (ctl) {
+      return fetch(u, {
+        mode: "no-cors", cache: "no-store", signal: ctl ? ctl.signal : undefined
+      }).then(function () { return true; });
+    }, ms || 6000).then(function () { return true; }, function () { return false; });
+  }
+
+  function run() {
+    done = false;
+    clearAll();
+    fail.classList.add("hide");
+    boot.classList.remove("hide");
+    bootTxt.textContent = "正在连接你的电脑…";
+
+    pickBest().then(function (best) {
+      if (!best) { toSnap("读不到通道地址"); return; }
+      if (best.updated) bootTxt.textContent = "正在连接（" + best.updated + " 的通道）…";
+
+      probe(best.url, 6000).then(function (ok) {
+        if (ok) {
+          // 直接整页跳转：不在 iframe 里跑，避免跨站限制导致数据刷不出来
+          location.replace(best.url);
+          return;
+        }
+        bootTxt.textContent = "电脑没有响应，再试一次…";
+        loadApi(true).then(function (d) {
+          if (d && d.url && d.url !== best.url) {
+            probe(d.url, 5000).then(function (ok2) {
+              if (ok2) location.replace(d.url);
+              else toSnap("电脑不在线");
+            });
+          } else {
+            toSnap("电脑不在线");
+          }
+        }).catch(function () { toSnap("电脑不在线"); });
+      });
+    }).catch(function () { toSnap("读不到通道地址"); });
+
+    // 总兜底：18 秒还没跳走就问一句
+    later(function () {
+      if (!done) {
+        bootTxt.textContent = "网络有点慢，可以点下面的按钮直接看快照";
+        done = true;
+        boot.classList.add("hide");
+        fail.classList.remove("hide");
+        failDesc.innerHTML = "等了 18 秒还没连上电脑。<br>电脑可能关机、睡眠，或网络不通。";
+      }
+    }, 18000);
+  }
+
+  document.getElementById("retry").addEventListener("click", function () {
+    location.href = location.pathname + "?r=" + Date.now();
+  });
+  document.getElementById("snap").addEventListener("click", function () {
+    location.href = "./snap.html";
+  });
+
+  run();
+})();
+</script>
+</body>
+</html>
