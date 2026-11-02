@@ -97,6 +97,38 @@
   .m-canvas{width:100%;height:clamp(290px,46vh,360px);display:block}
   .m-foot{font-size:10.5px;color:var(--muted2);text-align:center;padding:10px 14px 16px;line-height:1.6}
   .m-loading{color:var(--muted2);font-size:12px;text-align:center;padding:40px 0}
+
+  /* ===== 桌面宽屏适配：手机端（<720px）维持原窄屏布局不变 ===== */
+  @media (min-width: 720px) {
+    .wrap{max-width:940px;padding-left:20px;padding-right:20px}
+    .idx{grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+    .ic{padding:13px 15px}
+    .ic .n{font-size:12.5px;margin-bottom:6px}
+    .ic .p{font-size:20px}
+    .ic .c{font-size:12.5px;margin-top:4px}
+    #accts{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+    .acct{margin-bottom:0}
+    .a-n{font-size:15px}
+    .a-asset{font-size:23px}
+    .a-sub{font-size:12.5px}
+    /* 持仓表格列在宽屏下放宽，杜绝被裁切 */
+    .hd>span:nth-child(2),.rw>span:nth-child(2){width:66px}
+    .hd>span:nth-child(3),.rw>span:nth-child(3){width:88px}
+    .hd>span:nth-child(4),.rw>span:nth-child(4){width:100px}
+    .nm{font-size:13.5px}
+    .px{font-size:13px}
+    .dy,.pn{font-size:12.5px}
+    .tip{margin-top:18px}
+  }
+  /* 分时弹层在桌面下居中限宽，避免 canvas 被过度横向拉伸 */
+  @media (min-width: 720px) {
+    .mask{align-items:center}
+    .m-head,.m-px,.m-chg,.m-legend,.m-canvas,.m-foot{
+      max-width:900px;width:100%;margin-left:auto;margin-right:auto}
+    .m-canvas{height:clamp(360px,62vh,460px)}
+    .m-name{font-size:18px}
+    .m-px{font-size:34px}
+  }
 </style>
 </head>
 <body>
